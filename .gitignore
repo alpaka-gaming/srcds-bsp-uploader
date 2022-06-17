@@ -223,3 +223,6 @@ src/public
 backups
 docs
 .idea
+src/vendor
+*.lock
+*-lock.json

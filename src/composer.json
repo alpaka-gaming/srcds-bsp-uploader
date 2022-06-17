@@ -1,0 +1,20 @@
+{
+  "description": "Source Dedicated Server BSP Uploader",
+  "minimum-stability": "stable",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "ennerperez",
+      "email": "ennerperez@gmail.com"
+    }
+  ],
+  "require": {
+    "lazzard/php-ftp-client": "v1.7.*",
+    "vlucas/phpdotenv": "v3.6.*",
+    "phpseclib/phpseclib": "3.0.*",
+    "ext-pdo": "*",
+    "ext-pdo_sqlite": "*",
+    "ext-bz2": "*",
+    "ext-ssh2": "*"
+  }
+}
