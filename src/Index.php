@@ -1,6 +1,22 @@
 <?php
 
 require __DIR__ . '/bootstrap/app.php';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user = new stdClass();
+    $user->username = $_POST["username"];
+    $user->password = $_POST["password"];
+    $result = Auth::login($user);
+    if ($result) {
+        header(null, null, 200);
+    } else {
+        header(null, null, 401);
+    }
+    exit();
+} else {
+    if (!Auth::guest()) Auth::logout();
+}
+
 ?>
 
 <!doctype html>
@@ -40,7 +56,7 @@ require __DIR__ . '/bootstrap/app.php';
     <div class="row">
         <div class="col-md-6 offset-md-3">
             <div class="card shadow my-2">
-                <form class="card-body p-lg-5">
+                <form id="formLogin" method="post" class="card-body p-lg-5">
                     <div class="text-center">
                         <img src="public/images/srcds_logo.svg" class="img-fluid w-50 my-3" alt="">
                     </div>
@@ -48,21 +64,80 @@ require __DIR__ . '/bootstrap/app.php';
                         <h1>Login</h1>
                     </div>
                     <div class="mb-3">
-                        <input type="email" class="form-control" id="email" aria-describedby="emailHelp" placeholder="Email" />
+                        <input type="email" class="form-control" id="username" aria-describedby="emailHelp" placeholder="Email"/>
                     </div>
                     <div class="mb-3">
-                        <input type="password" class="form-control" id="password" placeholder="Password" />
+                        <input type="password" class="form-control" id="password" placeholder="Password"/>
                     </div>
                     <div class="text-center">
-                        <button type="submit" class="btn btn-primary px-5 mb-5 w-100">Login</button>
+                        <button id="btnLogin" class="btn btn-primary w-100" type="button" onclick="return onLogin()">Login</button>
+                    </div>
+                    <div id="loader" class="mb3">
+                        <label>Uploading...</label>
+                        <div class="progress">
+                            <div id="progress" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+                        </div>
                     </div>
                 </form>
             </div>
+            <small>Copyright &copy; 2022 - <a href="https://www.ennerperez.dev/" target="_blank">Enner Pérez</a></small>
         </div>
     </div>
 </div>
 
 <script src="public/js/app.js"></script>
+<script>
+
+    function onLoad() {
+        document.querySelector("#loader").style.display = 'none';
+        document.querySelector("#username").disabled = false;
+        document.querySelector("#password").disabled = false;
+        document.querySelector("#formLogin").reset();
+    }
+
+    function onLogin() {
+
+        document.querySelector("#username").disabled = true;
+        document.querySelector("#password").disabled = true;
+
+        let action = document.querySelector("#formLogin").action;
+        let method = document.querySelector("#formLogin").method;
+        let username = document.querySelector("#username").value;
+        let password = document.querySelector("#password").value;
+
+        let formData = new FormData();
+        formData.append("username", username);
+        formData.append("password", password);
+
+        let request = new XMLHttpRequest();
+
+        request.addEventListener("load", onSuccess);
+        request.addEventListener("error", onError);
+
+        request.open(method, action);
+
+        try {
+            request.send(formData);
+        } catch (e) {
+            console.log(e);
+        }
+    }
+
+    function onSuccess(e) {
+        if (e.currentTarget.status === 200) {
+            window.location.href = "Upload.php";
+        }
+        onLoad();
+    }
+
+    function onError(e) {
+        swal.fire('Error', 'Unable to login, check username and password', 'error');
+        onLoad();
+    }
+
+    /* INIT */
+    onLoad();
+</script>
 
 </body>
 </html>

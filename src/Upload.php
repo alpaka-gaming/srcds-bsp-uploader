@@ -5,12 +5,13 @@ require __DIR__ . '/bootstrap/app.php';
 use phpseclib3\Net\SFTP;
 
 $dotenv = App::Environment();
-$username = "Enner Pérez";
+
+if (Auth::guest()) {
+    header("Location: Index.php");
+    exit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($dotenv["DB_CONNECTION"] == "sqlite") {
-        $database = new PDO("sqlite:{$dotenv["DB_CONNECTION"]}");
-    }
 
     try {
 
@@ -18,25 +19,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $target_dir = 'public/data/maps';
         if (!file_exists($target_dir)) mkdir($target_dir, 0777, true);
 
-        $file_name = $_FILES["bspFile"]["name"];
+        $file_name = $_FILES["file"]["name"];
         $target_file = $target_dir . "/" . basename($file_name);
         $file_type = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
         $map_name = strtolower(pathinfo($file_name, PATHINFO_FILENAME));
 
-        if ($file_type != "bsp" && $file_type != ".bsp.bz2") throw new Exception("Invalid File Format");
+        if ($file_type != "bsp" && $file_type != "bz2") throw new Exception("Invalid File Format");
 
-        move_uploaded_file($_FILES["bspFile"]["tmp_name"], $target_file);
+        move_uploaded_file($_FILES["file"]["tmp_name"], $target_file);
 
         /* BZIPING */
-        $bzip2file = $target_dir . "/$file_name.bz2";
-        $data = file_get_contents($target_file);
-        file_put_contents("compress.bzip2://$bzip2file", $data);
+        if ($file_type != "bz2") {
+            $bzip2file = $target_dir . "/$file_name.bz2";
+            $data = file_get_contents($target_file);
+            file_put_contents("compress.bzip2://$bzip2file", $data);
+        } else {
+            $newFile = str_replace('.bz2', '', $target_file);
+            $bz = bzopen($target_file, 'r');
+            $uncompressed = '';
+            if (file_exists($newFile)) unlink($newFile);
+            $handle = fopen($newFile, 'w');
+            while (!feof($bz)) {
+                //$uncompressed .= bzread($bz, 4096);
+                $chunk = bzread($bz, 4096);
+                fwrite($handle, $chunk);
+            }
+            bzclose($bz);
+            //file_put_contents($newFile, $uncompressed);
+        }
 
         /* SFTP */
-        $ftp_host = $dotenv["FTP_SERVER"];
-        $ftp_username = $dotenv["FTP_USERNAME"];
-        $ftp_password = $dotenv["FTP_PASSWORD"];
-        $ftp_path = $dotenv["FTP_PATH"];
+        $ftp_host = $dotenv->FTP_SERVER;
+        $ftp_username = $dotenv->FTP_USERNAME;
+        $ftp_password = $dotenv->FTP_PASSWORD;
+        $ftp_path = $dotenv->FTP_PATH;
 
         $sftp = new SFTP($ftp_host);
         $sftp->login($ftp_username, $ftp_password);
@@ -65,12 +81,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $success = $sftp->put($remoteFile, $localFile, SFTP::SOURCE_LOCAL_FILE);
         }
 
+        header(null, null, 301);
+
     } catch (Throwable $ex) {
-        var_dump($ex);
+        $message = $ex->getMessage();
+        header($message, null, 500);
+        exit();
     }
-
+} else {
+    $username = Auth::User()->name;
 }
-
 ?>
 
 <!doctype html>
@@ -110,16 +130,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="row">
         <div class="col-md-6 offset-md-3">
             <div class="card shadow my-2">
-                <form method="post" action="/" enctype="multipart/form-data" class="card-body p-lg-5">
+                <form id="formUpload" method="post" enctype="multipart/form-data" class="card-body p-lg-5">
+                    <div class="d-flex justify-content-end">
+                        <a href="Index.php" class="btn-close " aria-label="Close"></a>
+                    </div>
                     <div class="text-center">
                         <img src="public/images/srcds_logo.svg" class="img-fluid w-50 my-3" alt="">
                     </div>
                     <div class="mb3">
-                        <h5>Welcome, <?= $username ?></h5>
+                        <h5>Welcome back, <?= $username ?></h5>
                         <h1>Map Uploader</h1>
                     </div>
                     <div class="mb-3">
-                        <input id="file" name="file" class="form-control" type="file">
+                        <input id="file" name="file" class="form-control" type="file" accept=".bsp, .bz2">
                     </div>
                     <div class="mb-3">
                         <div class="form-check">
@@ -130,16 +153,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                     <div class="mb-3">
-                        <button id="btnUpload" onclick="onUpload" class="btn btn-primary w-100" type="submit">Upload</button>
+                        <button id="btnUpload" class="btn btn-primary w-100" type="button" onclick="return onUpload()">Upload</button>
                     </div>
                     <div id="loader" class="mb3">
-                        <label>Uplading...</label>
+                        <label>Uploading...</label>
                         <div class="progress">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100" style="width: 75%"></div>
+                            <div id="progress" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
                         </div>
                     </div>
                 </form>
             </div>
+            <small>Copyright &copy; 2022 - <a href="https://www.ennerperez.dev/" target="_blank">Enner Pérez</a></small>
         </div>
     </div>
 </div>
@@ -148,13 +172,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script>
     function onLoad() {
         document.querySelector("#loader").style.display = 'none';
+        document.querySelector("#file").disabled = false;
+        document.querySelector("#checkCycle").disabled = false;
+        document.querySelector("#btnUpload").disabled = false;
+        document.querySelector("#formUpload").reset();
     }
 
     function onUpload() {
+
         document.querySelector("#loader").style.display = 'block';
         document.querySelector("#file").disabled = true;
         document.querySelector("#checkCycle").disabled = true;
         document.querySelector("#btnUpload").disabled = true;
+        //document.querySelector("#formUpload").submit();
+
+        let action = document.querySelector("#formUpload").action;
+        let method = document.querySelector("#formUpload").method;
+        let file = document.querySelector("#file").files[0];
+        let cycle = document.querySelector("#checkCycle:checked").value;
+
+        let formData = new FormData();
+        formData.append("file", file);
+        formData.append("cycle", cycle);
+
+        let request = new XMLHttpRequest();
+
+        request.addEventListener("progress", onProgress);
+        request.addEventListener("load", onSuccess);
+        request.addEventListener("error", onError);
+
+        request.open(method, action);
+
+        try {
+            request.send(formData);
+        } catch (e) {
+            console.log(e);
+        }
+    }
+
+    function onProgress(e) {
+        if (e.lengthComputable) {
+            let percentComplete = e.loaded / e.total * 100;
+            document.querySelector("#formUpload").style.width = percentComplete + "%";
+            console.log("The upload is " + percentComplete + "% completed")
+        } else {
+            // Unable to compute progress information since the total size is unknown
+        }
+    }
+
+    function onSuccess(e) {
+        if (e.currentTarget.status === 300) {
+            swal.fire('Done', 'The upload is complete.', 'success');
+        } else {
+            swal.fire('Error', 'An error occurred while transferring the file.', 'error');
+        }
+        onLoad();
+    }
+
+    function onError(e) {
+        swal.fire('Error', 'An error occurred while transferring the file.', 'error');
+        onLoad();
     }
 
     /* INIT */
@@ -164,4 +241,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 </body>
 </html>
+
 
