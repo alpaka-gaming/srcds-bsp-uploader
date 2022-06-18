@@ -11,7 +11,6 @@ try {
     window.$ = window.jQuery = require('jquery');
     window.moment = require('moment');
     window.swal = require('sweetalert2');
-    window.lightbox = require('lightbox2');
     window.holderjs = require('holderjs');
     require('bootstrap');
 } catch (e) {}

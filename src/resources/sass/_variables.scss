@@ -1,20 +1,29 @@
 // Body
-$body-bg: #262626;
-$body-color: #c3c3c3;
+//$body-bg: #262626;
+//$body-color: #c3c3c3;
+
+body{
+  background-color: #262626 !important;
+}
 
 // Typography
-$font-family-sans-serif: 'Nunito', sans-serif;
+@font-face {
+  font-family: 'Mytupi';
+  src: url('/resources/fonts/mytupi.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Mytupi Bold';
+  src: url('/resources/fonts/mytupiBOLD.ttf') format('truetype');
+  font-weight: bold;
+}
+@font-face {
+  font-family: 'Mytupi Inpacto';
+  src: url('/resources/fonts/mytupiIMPACTO.ttf') format('truetype');
+}
+$font-family-sans-serif: 'Mytupi', sans-serif;
 $font-size-base: 0.9rem;
 $line-height-base: 1.6;
 
 // Colors
-$blue: #3490dc;
-$indigo: #6574cd;
-$purple: #9561e2;
-$pink: #f66d9b;
-$red: #e3342f;
-$orange: #f6993f;
-$yellow: #ffed4a;
-$green: #38c172;
-$teal: #4dc0b5;
-$cyan: #6cb2eb;
+$primary: #f49a21 !default;
+$body-color: #606060 !default;

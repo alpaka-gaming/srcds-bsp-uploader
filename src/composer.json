@@ -14,7 +14,6 @@
     "phpseclib/phpseclib": "3.0.*",
     "ext-pdo": "*",
     "ext-pdo_sqlite": "*",
-    "ext-bz2": "*",
-    "ext-ssh2": "*"
+    "ext-bz2": "*"
   }
 }
