@@ -50,7 +50,17 @@ class Auth
         return self::$user;
     }
 
-    //TODO:
+    public static function validate($credentials): bool
+    {
+        $stmt = DB::Database()->prepare("SELECT id, username, email, name, password FROM users WHERE active = 1 AND username = ?");
+        $stmt->execute([$credentials->username]);
+        $row = $stmt->fetch();
+        if (isset($row)) {
+            return $row[4] != null;
+        }
+        return false;
+    }
+
     public static function login($credentials): bool
     {
         $stmt = DB::Database()->prepare("SELECT id, username, email, name, password FROM users WHERE active = 1 AND username = ?");
@@ -58,9 +68,14 @@ class Auth
         $row = $stmt->fetch();
         if (isset($row)) {
 
-            //$hash = password_hash($credentials->password, PASSWORD_DEFAULT);
-            $verify = password_verify($credentials->password, $row[4]);
-            if (!$verify) return false;
+            if ($row[4] == null) {
+                $hash = password_hash($credentials->password, PASSWORD_DEFAULT);
+                $update = DB::Database()->prepare("UPDATE users SET password = ? WHERE id = ?");
+                $update->execute([$hash, $row[0]]);
+            } else {
+                $verify = password_verify($credentials->password, $row[4]);
+                if (!$verify) return false;
+            }
 
             $user = new stdClass();
             $user->session_id = uniqid();
@@ -72,11 +87,11 @@ class Auth
             $stmt = DB::Database()->prepare("UPDATE sessions SET active = 0 WHERE user_id = ?");
             $stmt->execute([$user_id]);
 
-            $stmt = DB::Database()->prepare("INSERT INTO sessions(key,created_at,expires_at,user_id) values (?,?,?,?)");
+            $stmt = DB::Database()->prepare("INSERT INTO sessions(id,created_at,expires_at,user_id) values (?,?,?,?)");
             $created_at = date("c");
             $expires_at = time() + (86400 * 30);
 
-            $stmt->execute([$user->session_id,$created_at,$expires_at,$user_id]);
+            $stmt->execute([$user->session_id, $created_at, $expires_at, $user_id]);
 
             $serialized = serialize($user);
             $encoded = base64_encode($serialized);

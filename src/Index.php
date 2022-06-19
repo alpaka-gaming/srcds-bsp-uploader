@@ -8,9 +8,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user->password = $_POST["password"];
     $result = Auth::login($user);
     if ($result) {
-        header(null, null, 200);
+        header($user->username, null, 200);
     } else {
-        header(null, null, 401);
+        header($user->username, null, 401);
     }
     exit();
 } else {
@@ -27,22 +27,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- favicon -->
-    <link rel="apple-touch-icon" sizes="57x57" href="/public/favicon/apple-icon-57x57.png">
-    <link rel="apple-touch-icon" sizes="60x60" href="/public/favicon/apple-icon-60x60.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="/public/favicon/apple-icon-72x72.png">
-    <link rel="apple-touch-icon" sizes="76x76" href="/public/favicon/apple-icon-76x76.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="/public/favicon/apple-icon-114x114.png">
-    <link rel="apple-touch-icon" sizes="120x120" href="/public/favicon/apple-icon-120x120.png">
-    <link rel="apple-touch-icon" sizes="144x144" href="/public/favicon/apple-icon-144x144.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/public/favicon/apple-icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/public/favicon/apple-icon-180x180.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/public/favicon/android-icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="96x96" href="/public/favicon/favicon-96x96.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/public/favicon/favicon-16x16.png">
-    <link rel="manifest" href="/public/favicon/manifest.json">
+    <link rel="apple-touch-icon" sizes="57x57" href="public/favicon/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="public/favicon/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="public/favicon/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="public/favicon/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="public/favicon/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="public/favicon/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="public/favicon/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="public/favicon/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="public/favicon/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="public/favicon/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="public/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="public/favicon/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="public/favicon/favicon-16x16.png">
+    <link rel="manifest" href="public/favicon/manifest.json">
     <meta name="msapplication-TileColor" content="#ffffff">
-    <meta name="msapplication-TileImage" content="/public/favicon/ms-icon-144x144.png">
+    <meta name="msapplication-TileImage" content="public/favicon/ms-icon-144x144.png">
     <meta name="theme-color" content="#ffffff">
 
     <!-- Bootstrap CSS -->
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <h1>Login</h1>
                     </div>
                     <div class="mb-3">
-                        <input type="email" class="form-control" id="username" aria-describedby="emailHelp" placeholder="Email"/>
+                        <input type="text" class="form-control" id="username" placeholder="Username"/>
                     </div>
                     <div class="mb-3">
                         <input type="password" class="form-control" id="password" placeholder="Password"/>
@@ -72,8 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="text-center">
                         <button id="btnLogin" class="btn btn-primary w-100" type="button" onclick="return onLogin()">Login</button>
                     </div>
-                    <div id="loader" class="mb3">
-                        <label>Uploading...</label>
+                    <div id="loader" class="my-3">
                         <div class="progress">
                             <div id="progress" class="progress-bar progress-bar-striped progress-bar-animated bg-warning" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
                         </div>
@@ -124,8 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function onSuccess(e) {
-        if (e.currentTarget.status === 200) {
+        if (e.currentTarget.status === 200 || e.currentTarget.statusText === "OK") {
             window.location.href = "Upload.php";
+        } else {
+            swal.fire('Error', 'Unable to login, check username and password', 'error');
         }
         onLoad();
     }

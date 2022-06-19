@@ -40,48 +40,104 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (file_exists($newFile)) unlink($newFile);
             $handle = fopen($newFile, 'w');
             while (!feof($bz)) {
-                //$uncompressed .= bzread($bz, 4096);
                 $chunk = bzread($bz, 4096);
                 fwrite($handle, $chunk);
             }
             bzclose($bz);
-            //file_put_contents($newFile, $uncompressed);
         }
 
-        /* SFTP */
-        $ftp_host = $dotenv->FTP_SERVER;
-        $ftp_username = $dotenv->FTP_USERNAME;
-        $ftp_password = $dotenv->FTP_PASSWORD;
-        $ftp_path = $dotenv->FTP_PATH;
+        $bsp_filename = $map_name . ".bsp";
+        $bsp_filepath = $target_dir . "/" . $bsp_filename;
 
-        $sftp = new SFTP($ftp_host);
-        $sftp->login($ftp_username, $ftp_password);
+        $bz2_filename = $map_name . ".bsp.bz2";
+        $bz2_filepath = $target_dir . "/" . $bz2_filename;
 
-        /* MAP */
-        $remoteFile = $ftp_path . "/maps/" . $file_name;
-        $localFile = $target_file;
-        $success = false;
-        if (!$sftp->file_exists($remoteFile)) {
-            $success = $sftp->put($remoteFile, $localFile, SFTP::SOURCE_LOCAL_FILE);
+        /* SERVER */
+        if ($dotenv->SERVER_FTP_SERVER != null) {
+
+            $server_sftp = new SFTP($dotenv->SERVER_FTP_SERVER);
+            $server_sftp->login($dotenv->SERVER_FTP_USERNAME, $dotenv->SERVER_FTP_PASSWORD);
+
+            /* MAP */
+            $remoteFile = $dotenv->SERVER_FTP_PATH . "/maps/" . $bsp_filename;
+            $localFile = $bsp_filepath;
+
+            if ($dotenv->MAP_OVERRIDE) {
+                $file_exists = $server_sftp->file_exists($remoteFile);
+                if ($file_exists) {
+                    $server_sftp->delete($remoteFile);
+                }
+            }
+            $file_exists = $server_sftp->file_exists($remoteFile);
+            if (!$file_exists) {
+                $success = $server_sftp->put($remoteFile, $localFile, SFTP::SOURCE_LOCAL_FILE);
+            } else {
+                $success = true;
+            }
+            if ($success) unlink($localFile);
+
+            /* MAP CYCLE */
+            if ($success && $_POST["cycle"] == "true") {
+
+                $target_dir = 'public/data/cfg';
+                if (!file_exists($target_dir)) mkdir($target_dir, 0777, true);
+
+                $file_name = "mapcycle.txt";
+                $remoteFile = $dotenv->SERVER_FTP_PATH . "/cfg/" . $file_name;
+
+                $localFile = $target_dir . "/" . $file_name;
+                $output = $server_sftp->get($remoteFile);
+                file_put_contents($localFile, $output);
+
+                $inCycle = false;
+                foreach (file($localFile) as $line) {
+                    if ($line == $map_name) {
+                        $inCycle = true;
+                        break;
+                    }
+                }
+                if (!$inCycle) {
+                    $output = $output . PHP_EOL . $map_name;
+                    file_put_contents($localFile, $output);
+                    $success = $server_sftp->put($remoteFile, $localFile, SFTP::SOURCE_LOCAL_FILE);
+                    if ($success) unlink($localFile);
+                }
+            }
         }
 
-        /* MAP CYCLE */
-        if ($success) {
+        /* FASTDL */
+        if ($dotenv->FASTDL_FTP_SERVER != null) {
 
-            $target_dir = 'public/data/cfg';
-            if (!file_exists($target_dir)) mkdir($target_dir, 0777, true);
+            $fastdl_sftp = new SFTP($dotenv->FASTDL_FTP_SERVER);
+            $fastdl_sftp->login($dotenv->FASTDL_FTP_USERNAME, $dotenv->FASTDL_FTP_PASSWORD);
 
-            $file_name = "mapcycle.txt";
-            $remoteFile = $ftp_path . "/cfg/" . $file_name;
+            /* BZ2 */
+            $remoteFile = $dotenv->FASTDL_FTP_PATH . "/maps/" . $bz2_filename;
+            $localFile = $bz2_filepath;
 
-            $localFile = $target_dir . "/" . $file_name;
-            $output = $sftp->get($remoteFile);
-            $output = $output . PHP_EOL . $map_name;
-            file_put_contents($localFile, $output);
-            $success = $sftp->put($remoteFile, $localFile, SFTP::SOURCE_LOCAL_FILE);
+            if ($dotenv->BZ2_OVERRIDE) {
+                $file_exists = $fastdl_sftp->file_exists($remoteFile);
+                if ($file_exists) {
+                    $fastdl_sftp->delete($remoteFile);
+                }
+            }
+            $file_exists = $fastdl_sftp->file_exists($remoteFile);
+            if (!$file_exists) {
+                $success = $fastdl_sftp->put($remoteFile, $localFile, SFTP::SOURCE_LOCAL_FILE);
+            } else {
+                $success = true;
+            }
+
+            if ($success) unlink($localFile);
         }
 
-        header(null, null, 301);
+        $stmt = DB::Database()->prepare("INSERT INTO uploads(session_id,created_at,map_name) values (?,?,?)");
+        $created_at = date("c");
+        $session_id = Auth::User()->session_id;
+
+        $stmt->execute([$session_id, $created_at, $map_name]);
+
+        header($map_name, null, 201);
 
     } catch (Throwable $ex) {
         $message = $ex->getMessage();
@@ -101,22 +157,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- favicon -->
-    <link rel="apple-touch-icon" sizes="57x57" href="/public/favicon/apple-icon-57x57.png">
-    <link rel="apple-touch-icon" sizes="60x60" href="/public/favicon/apple-icon-60x60.png">
-    <link rel="apple-touch-icon" sizes="72x72" href="/public/favicon/apple-icon-72x72.png">
-    <link rel="apple-touch-icon" sizes="76x76" href="/public/favicon/apple-icon-76x76.png">
-    <link rel="apple-touch-icon" sizes="114x114" href="/public/favicon/apple-icon-114x114.png">
-    <link rel="apple-touch-icon" sizes="120x120" href="/public/favicon/apple-icon-120x120.png">
-    <link rel="apple-touch-icon" sizes="144x144" href="/public/favicon/apple-icon-144x144.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/public/favicon/apple-icon-152x152.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="/public/favicon/apple-icon-180x180.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="/public/favicon/android-icon-192x192.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="96x96" href="/public/favicon/favicon-96x96.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/public/favicon/favicon-16x16.png">
-    <link rel="manifest" href="/public/favicon/manifest.json">
+    <link rel="apple-touch-icon" sizes="57x57" href="public/favicon/apple-icon-57x57.png">
+    <link rel="apple-touch-icon" sizes="60x60" href="public/favicon/apple-icon-60x60.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="public/favicon/apple-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="76x76" href="public/favicon/apple-icon-76x76.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="public/favicon/apple-icon-114x114.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="public/favicon/apple-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="public/favicon/apple-icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="public/favicon/apple-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="public/favicon/apple-icon-180x180.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="public/favicon/android-icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="public/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="public/favicon/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="public/favicon/favicon-16x16.png">
+    <link rel="manifest" href="public/favicon/manifest.json">
     <meta name="msapplication-TileColor" content="#ffffff">
-    <meta name="msapplication-TileImage" content="/public/favicon/ms-icon-144x144.png">
+    <meta name="msapplication-TileImage" content="public/favicon/ms-icon-144x144.png">
     <meta name="theme-color" content="#ffffff">
 
     <!-- Bootstrap CSS -->
@@ -189,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         let action = document.querySelector("#formUpload").action;
         let method = document.querySelector("#formUpload").method;
         let file = document.querySelector("#file").files[0];
-        let cycle = document.querySelector("#checkCycle:checked").value;
+        let cycle = document.querySelector("#checkCycle").checked;
 
         let formData = new FormData();
         formData.append("file", file);
@@ -221,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     function onSuccess(e) {
-        if (e.currentTarget.status === 300) {
+        if (e.currentTarget.status === 201 || e.currentTarget.statusText === "OK") {
             swal.fire('Done', 'The upload is complete.', 'success');
         } else {
             swal.fire('Error', 'An error occurred while transferring the file.', 'error');
