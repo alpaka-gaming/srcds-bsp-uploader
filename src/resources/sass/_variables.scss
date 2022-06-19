@@ -1,0 +1,16 @@
+// Body
+
+body{
+  background-color: #262626 !important;
+}
+
+// Typography
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+
+$font-family-sans-serif: 'Montserrat', sans-serif;
+$font-size-base: 0.9rem;
+$line-height-base: 1.6;
+
+// Colors
+$primary: #f49a21 !default;
+$body-color: #606060 !default;
